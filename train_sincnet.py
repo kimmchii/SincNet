@@ -73,32 +73,32 @@ if __name__ == "__main__":
 
     # [data]
     data_config = config["data"]
-    train_data_list = ReadList(data_config["train_files"])
+    train_data_list = ReadList(data_config["train"]["files"])
     len_train = len(train_data_list)
-    test_data_list = ReadList(data_config["test_files"])
-    len_test = len(test_data_list)\
+    test_data_list = ReadList(data_config["test"]["files"])
+    len_test = len(test_data_list)
     # Load  label dictionary
     label_dict = np.load(data_config["label_dict"], allow_pickle=True).item()
     # Create output folder
     os.makedirs(data_config["output_folder"], exist_ok=True)
 
     # [cnn]
-    CNN_config = config["CNN"]
-    window_len = int(CNN_config["fs"] * CNN_config["convolution_window_len"] / 1000.0)
-    window_shift = int(CNN_config["fs"] * CNN_config["convolution_window_shift"] / 1000.0)
-    CNN_config.update({"input_dim": window_len})
-    CNN_net = SincNet(CNN_config)
-    CNN_net.cuda()
+    cnn_config = config["CNN"]
+    window_len = int(cnn_config["fs"] * cnn_config["convolution_window_len"] / 1000.0)
+    window_shift = int(cnn_config["fs"] * cnn_config["convolution_window_shift"] / 1000.0)
+    cnn_config.update({"input_dim": window_len})
+    cnn_model = SincNet(cnn_config)
+    cnn_model.cuda()
 
     # [dnn]
-    DNN1_config = config["DNN_1"]
-    DNN1_config.update({"input_dim": CNN_net.out_dim})
-    DNN2_config = config["DNN_2"]
-    DNN2_config.update({"input_dim": DNN1_config["fc_lay"][-1]})
-    DNN1_net = MLP(DNN1_config)
-    DNN1_net.cuda()
-    DNN2_net = MLP(DNN2_config)
-    DNN2_net.cuda()
+    dnn1_config = config["DNN_1"]
+    dnn1_config.update({"input_dim": cnn_model.out_dim})
+    dnn2_config = config["DNN_2"]
+    dnn2_config.update({"input_dim": dnn1_config["fc_lay"][-1]})
+    dnn1_model = MLP(dnn1_config)
+    dnn1_model.cuda()
+    dnn2_model = MLP(dnn2_config)
+    dnn2_model.cuda()
     
     # [optimization]
     optim_config = config["optimizer"]
@@ -110,16 +110,16 @@ if __name__ == "__main__":
 
 
     # Set up optimizer
-    optimizer_CNN = optim.RMSprop(CNN_net.parameters(), lr=optim_config["lr"], alpha=0.95, eps=1e-8)
-    optimizer_DNN1 = optim.RMSprop(DNN1_net.parameters(), lr=optim_config["lr"], alpha=0.95, eps=1e-8)
-    optimizer_DNN2 = optim.RMSprop(DNN2_net.parameters(), lr=optim_config["lr"], alpha=0.95, eps=1e-8)
+    optimizer_cnn = optim.RMSprop(cnn_model.parameters(), lr=optim_config["lr"], alpha=0.95, eps=1e-8)
+    optimizer_dnn1 = optim.RMSprop(dnn1_model.parameters(), lr=optim_config["lr"], alpha=0.95, eps=1e-8)
+    optimizer_dnn2 = optim.RMSprop(dnn2_model.parameters(), lr=optim_config["lr"], alpha=0.95, eps=1e-8)
     
     # Training
     for epoch in range(optim_config["n_epochs"]):
         test_flag = 0
-        CNN_net.train()
-        DNN1_net.train()
-        DNN2_net.train()
+        cnn_model.train()
+        dnn1_model.train()
+        dnn2_model.train()
 
         loss_sum = 0
         err_sum = 0
@@ -127,7 +127,7 @@ if __name__ == "__main__":
         for i in range(optim_config["n_batches"]):
             [inputs, labels] = create_batches_rnd(
                 optim_config["batch_size"],
-                data_config["data_folder"],
+                data_config["train"]["data_folder"],
                 train_data_list,
                 len_train,
                 window_len,
@@ -136,24 +136,24 @@ if __name__ == "__main__":
             )
 
             # Forward pass
-            CNN_out = CNN_net(inputs)
-            DNN1_out = DNN1_net(CNN_out)
-            DNN2_out = DNN2_net(DNN1_out)
+            cnn_out = cnn_model(inputs)
+            dnn1_out = dnn1_model(cnn_out)
+            dnn2_out = dnn2_model(dnn1_out)
 
-            prediction = torch.max(DNN2_out, 1)[1]
-            loss = cost_function(DNN2_out, labels.long())
+            prediction = torch.max(dnn2_out, 1)[1]
+            loss = cost_function(dnn2_out, labels.long())
             err = torch.mean((prediction != labels.long()).float())
 
             # Backward pass
-            optimizer_CNN.zero_grad()
-            optimizer_DNN1.zero_grad()
-            optimizer_DNN2.zero_grad()
+            optimizer_cnn.zero_grad()
+            optimizer_dnn1.zero_grad()
+            optimizer_dnn2.zero_grad()
             loss.backward()
 
             # Update weights
-            optimizer_CNN.step()
-            optimizer_DNN1.step()
-            optimizer_DNN2.step()
+            optimizer_cnn.step()
+            optimizer_dnn1.step()
+            optimizer_dnn2.step()
 
             loss_sum = loss_sum + loss.detach()
             err_sum = err_sum + err.detach()
@@ -165,14 +165,14 @@ if __name__ == "__main__":
 
         # Evaluation
         if epoch % optim_config["n_eval_epoch"] == 0:
-            CNN_net.eval()
-            DNN1_net.eval()
-            DNN2_net.eval()
+            cnn_model.eval()
+            dnn1_model.eval()
+            dnn2_model.eval()
 
             test_flag = 1
             loss_sum = 0
             err_sum = 0
-            err_sum_snt = 0
+            err_sum_sentence = 0
 
             with torch.no_grad():
                 for i in range(len_test):
@@ -185,44 +185,44 @@ if __name__ == "__main__":
                     begin_sample = 0
                     end_sample = window_len
 
-                    n_fr = int((signal.shape[0] - window_len) / window_shift)
+                    n_frame = int((signal.shape[0] - window_len) / window_shift)
 
                     signal_array = torch.zeros(optim_config["batch_dev"], window_len).float().cuda().contiguous()
                     label = Variable(
-                        (torch.zeros(n_fr + 1) + label_batch).cuda().contiguous().long()
+                        (torch.zeros(n_frame + 1) + label_batch).cuda().contiguous().long()
                     )
                     output = Variable(
-                        torch.zeros(n_fr + 1, DNN2_config["fc_lay"][-1]).float().cuda().contiguous()
+                        torch.zeros(n_frame + 1, dnn2_config["fc_lay"][-1]).float().cuda().contiguous()
                     )
-                    count_fr = 0
-                    count_fr_total = 0
+                    count_frame = 0
+                    count_frame_total = 0
 
                     while end_sample < signal.shape[0]:
-                        signal_array[count_fr, :] = signal[begin_sample:end_sample]
+                        signal_array[count_frame, :] = signal[begin_sample:end_sample]
                         begin_sample = begin_sample + window_shift
                         end_sample = begin_sample + window_len
-                        count_fr += 1
-                        count_fr_total += 1
+                        count_frame += 1
+                        count_frame_total += 1
 
-                        if count_fr == optim_config["batch_dev"]:
+                        if count_frame == optim_config["batch_dev"]:
                             input = Variable(signal_array)
                             
-                            CNN_out = CNN_net(input)
-                            DNN1_out = DNN1_net(CNN_out)
-                            DNN2_out = DNN2_net(DNN1_out)
+                            cnn_out = cnn_model(input)
+                            dnn1_out = dnn1_model(cnn_out)
+                            dnn2_out = dnn2_model(dnn1_out)
 
-                            output[count_fr_total - optim_config["batch_dev"] : count_fr_total, :] = DNN2_out
+                            output[count_frame_total - optim_config["batch_dev"] : count_frame_total, :] = dnn2_out
                             
-                            count_fr = 0
+                            count_frame = 0
                             signal_array = torch.zeros(optim_config["batch_dev"], window_len).float().cuda().contiguous()
                     
-                    if count_fr > 0:
-                        input = Variable(signal_array[:count_fr])
-                        CNN_out = CNN_net(input)
-                        DNN1_out = DNN1_net(CNN_out)
-                        DNN2_out = DNN2_net(DNN1_out)
+                    if count_frame > 0:
+                        input = Variable(signal_array[:count_frame])
+                        cnn_out = cnn_model(input)
+                        dnn1_out = dnn1_model(cnn_out)
+                        dnn2_out = dnn2_model(dnn1_out)
 
-                        output[count_fr_total - count_fr : count_fr_total, :] = DNN2_out
+                        output[count_frame_total - count_frame : count_frame_total, :] = dnn2_out
                     
                     # compute the error rate
                     prediction = torch.max(output, 1)[1]
@@ -230,12 +230,12 @@ if __name__ == "__main__":
                     err = torch.mean((prediction != label.long()).float())
 
                     val, best_class = torch.max(torch.sum(output, dim=0), 0)
-                    err_sum_snt += (best_class != label[0]).float()
+                    err_sum_sentence += (best_class != label[0]).float()
 
                     loss_sum += loss.detach()
                     err_sum += err.detach()
                 
-                err_total_dev_snt = err_sum_snt / len_test
+                err_total_dev_snt = err_sum_sentence / len_test
                 loss_total_dev = loss_sum / len_test
                 err_total_dev = err_sum / len_test
             
@@ -251,6 +251,6 @@ if __name__ == "__main__":
                 )
             
             # Save model
-            torch.save(CNN_net.state_dict(), op.join(data_config["output_folder"], "cnn_state_dict.pth"))
-            torch.save(DNN1_net.state_dict(), op.join(data_config["output_folder"], "dnn1_state_dict.pth"))
-            torch.save(DNN2_net.state_dict(), op.join(data_config["output_folder"], "dnn2_state_dict.pth"))
+            torch.save(cnn_model.state_dict(), op.join(data_config["output_folder"], "cnn_state_dict.pth"))
+            torch.save(dnn1_model.state_dict(), op.join(data_config["output_folder"], "dnn1_state_dict.pth"))
+            torch.save(dnn2_model.state_dict(), op.join(data_config["output_folder"], "dnn2_state_dict.pth"))

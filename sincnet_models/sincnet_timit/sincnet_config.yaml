@@ -1,8 +1,14 @@
+
 data:
-  train_files: data_lists/TIMIT_train.scp
-  test_files: data_lists/TIMIT_test.scp
+  train:
+    files: data_lists/TIMIT_train.scp
+    data_folder: Dataset/TIMIT/processed
+
+  test:
+    files: data_lists/TIMIT_test.scp
+    data_folder: Dataset/TIMIT/original
+
   label_dict: data_lists/TIMIT_labels.npy
-  data_folder: Dataset/TIMIT/processed
   output_folder: sincnet_models/sincnet_timit/train
   pt_file: null # may be checkpint ?
 
@@ -39,6 +45,7 @@ DNN_1:
   fc_use_batchnorm_inp: False
   fc_act: ['leaky_relu', 'leaky_relu', 'leaky_relu']
 
+# Last layer for classification, 462 because TIMIT has 462 classes
 DNN_2:
   # input_dim = fc_lay[-1] of DNN_1
   fc_lay: [462]
