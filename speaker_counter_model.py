@@ -1,9 +1,10 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from dnn_models import SincNetBN
 
 class SpeakerCounter(nn.Module):
-    def __init__(self, input_size=1024, attention_dim=128, num_heads=8, num_classes=10):
+    def __init__(self, input_size=1024, num_heads=8, num_classes=10):
         super(SpeakerCounter, self).__init__()
         self.multihead_attn = nn.MultiheadAttention(embed_dim=input_size, num_heads=num_heads, batch_first=True)
         self.fc1 = nn.Linear(input_size, 512)
@@ -24,7 +25,7 @@ class SpeakerCounter(nn.Module):
 
 
 if __name__ == "__main__":
-    model = SpeakerCounter(input_size=1024, attention_dim=128, num_heads=8, num_classes=10)
+    model = SpeakerCounter(input_size=1024, num_heads=8, num_classes=10)
     input_tensor = torch.randn(1, 1, 1024)
     output = model(input_tensor)
     print(output.shape)  # should output torch.Size([32, 10])
