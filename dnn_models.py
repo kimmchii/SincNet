@@ -547,15 +547,19 @@ class SincNetBN(nn.Module):
     def __init__(self, config, device):
         super(SincNetBN, self).__init__()
         # Converting context and shift in samples
-        CNN_config = config["CNN"]
-        window_len = int(CNN_config["fs"] * CNN_config["convolution_window_len"] / 1000.0)
-        window_shift = int(CNN_config["fs"] * CNN_config["convolution_window_shift"] / 1000.0)
-        CNN_config.update({"input_dim": window_len})
-        self.sincnet = SincNet(CNN_config).to(device)
+        cnn_config = config.get("CNN", None)
+        dnn1_config = config.get("DNN_1", None)
+        if cnn_config is None or dnn1_config is None:
+            raise ValueError("Config file must contain CNN and DNN_1 keys")
+        
+        window_len = int(cnn_config["fs"] * cnn_config["convolution_window_len"] / 1000.0)
+        window_shift = int(cnn_config["fs"] * cnn_config["convolution_window_shift"] / 1000.0)
+        cnn_config.update({"input_dim": window_len})
+        self.sincnet = SincNet(cnn_config).to(device)
 
-        DNN1_config = config["DNN_1"]
-        DNN1_config.update({"input_dim": self.sincnet.out_dim})
-        self.dnn = MLP(DNN1_config).to(device)
+        dnn1_config = config["DNN_1"]
+        dnn1_config.update({"input_dim": self.sincnet.out_dim})
+        self.dnn = MLP(dnn1_config).to(device)
         
     def forward(self, x):
         x = self.sincnet(x)
