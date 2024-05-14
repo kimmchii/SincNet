@@ -560,6 +560,7 @@ class SincNetBN(nn.Module):
         dnn1_config = config["DNN_1"]
         dnn1_config.update({"input_dim": self.sincnet.out_dim})
         self.dnn = MLP(dnn1_config).to(device)
+        self.out_dim = dnn1_config["fc_lay"][-1]
         
     def forward(self, x):
         x = self.sincnet(x)
