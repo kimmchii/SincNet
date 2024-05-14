@@ -138,5 +138,10 @@ if __name__ == "__main__":
         config = yaml.load(f, Loader=yaml.SafeLoader)
 
     model = SpeakerCount(config)
+    sincnet_statedict = torch.load("./models/speaker_classifcation/sincnet_timit/train/cnn_state_dict.pth", map_location=model.device)
+    dnn_statedict = torch.load("./models/speaker_classifcation/sincnet_timit/train/dnn1_state_dict.pth", map_location=model.device)
+    model.sincnet_bn_model.sincnet.load_state_dict(sincnet_statedict)
+    model.sincnet_bn_model.dnn.load_state_dict(dnn_statedict)
+
     signal = np.random.rand(16000)
     print(model(signal))
