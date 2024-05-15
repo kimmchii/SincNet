@@ -2,3 +2,9 @@
 *.cfg
 *.mp3
 *.wav
+*/__pycache__/*
+*.txt
+*.phn
+*.pth
+*.json
+*.pkl
