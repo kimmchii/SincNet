@@ -21,7 +21,7 @@ import torch.optim as optim
 from torch.autograd import Variable
 
 import numpy as np
-from dnn_models import MLP, SincNet
+from modules.models.SincNet import MLP, SincNet
 from data_io import ReadList
 import yaml
 

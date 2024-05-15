@@ -22,8 +22,8 @@ from torch.autograd import Variable
 
 import sys
 import numpy as np
-from dnn_models import MLP, flip
-from dnn_models import SincNet as CNN
+from modules.models.SincNet import MLP, flip
+from modules.models.SincNet import SincNet as CNN
 from data_io import ReadList, read_conf, str_to_bool
 
 

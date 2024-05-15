@@ -1,4 +1,4 @@
-from dnn_models import SincNet, MLP
+from modules.models.SincNet import SincNet, MLP
 import torch
 import yaml
 

@@ -14,8 +14,8 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 import numpy as np
-from dnn_models import MLP
-from dnn_models import SincNet as CNN
+from modules.models.SincNet import MLP
+from modules.models.SincNet import SincNet as CNN
 from data_io import ReadList, read_conf_inp, str_to_bool
 import sys
 
