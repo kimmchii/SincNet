@@ -6,12 +6,12 @@ import numpy as np
 import sys
 import os.path as op
 sys.path.append(op.dirname(__file__))
-from .SincNetBN import SincNetBN
+from SincNetBN import SincNetBN
 
 class SpeakerCount(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, device):
         super(SpeakerCount, self).__init__()
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device
         self.sincnet_bn_model = SincNetBN(config).to(self.device)
 
         # Freeze the sincnet_bn model
@@ -137,12 +137,14 @@ class SpeakerCount(nn.Module):
 
 if __name__ == "__main__":
     import yaml
-    with open("../../sincnet_models/sincnet_timit/sincnet_config.yaml", "r") as f:
+    with open("../../models/speaker_classifcation/config.yaml", "r") as f:
         config = yaml.load(f, Loader=yaml.SafeLoader)
 
-    model = SpeakerCount(config)
-    sincnet_statedict = torch.load("./models/speaker_classifcation/sincnet_timit/train/cnn_state_dict.pth", map_location=model.device)
-    dnn_statedict = torch.load("./models/speaker_classifcation/sincnet_timit/train/dnn1_state_dict.pth", map_location=model.device)
+    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = "cpu"
+    model = SpeakerCount(config, device)
+    sincnet_statedict = torch.load("../../sincnet_models/sincnet_timit/train/cnn_state_dict.pth", map_location=model.device)
+    dnn_statedict = torch.load("../../sincnet_models/sincnet_timit/train/dnn1_state_dict.pth", map_location=model.device)
     model.sincnet_bn_model.sincnet.load_state_dict(sincnet_statedict)
     model.sincnet_bn_model.dnn.load_state_dict(dnn_statedict)
 

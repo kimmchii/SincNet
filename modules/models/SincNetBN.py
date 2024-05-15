@@ -3,7 +3,7 @@ import os.path as op
 import torch.nn as nn
 
 sys.path.append(op.dirname(__file__))
-from .SincNet import SincNet, MLP
+from SincNet import SincNet, MLP
 
 class SincNetBN(nn.Module):
     def __init__(self, config):
