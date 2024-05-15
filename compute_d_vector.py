@@ -180,7 +180,6 @@ with torch.no_grad():
             # computing energy on each frame:
             beg_samp = 0
             end_samp = wlen
-            print(signal.shape[0], wlen, wshift)
             N_fr = int((signal.shape[0] - wlen) / (wshift))
             Batch_dev = N_fr
             en_arr = torch.zeros(N_fr).float().contiguous().to(device)
@@ -236,10 +235,8 @@ with torch.no_grad():
         if avoid_small_en_fr:
             dvects = dvects.index_select(0, (en_arr_bin == 1).nonzero().view(-1))
         
-        print(dvects.shape)
         # averaging and normalizing all the d-vectors
         d_vect_out = torch.mean(dvects / dvects.norm(p=2, dim=1).view(-1, 1), dim=0)
-        print(d_vect_out.shape)
         # checks for nan
         nan_sum = torch.sum(torch.isnan(d_vect_out))
 
@@ -251,5 +248,7 @@ with torch.no_grad():
         dict_key = wav_lst_te[i].split("/")[-2] + "/" + wav_lst_te[i].split("/")[-1]
         d_vect_dict[dict_key] = d_vect_out.cpu().numpy()
 
+        print(dict_key)
+
 # Save the dictionary
-# np.save(out_dict_file, d_vect_dict)
+np.save(out_dict_file, d_vect_dict)
