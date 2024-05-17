@@ -2,7 +2,7 @@
 *.cfg
 *.mp3
 *.wav
-__pycache__
+__pycache__/
 *.txt
 *.phn
 *.pth

@@ -5,7 +5,6 @@ import pytorch_lightning as pl
 import librosa
 import json
 
-
 class SpeakerCountDataset(Dataset):
     def __init__(self, data):
         self.data = data
@@ -22,7 +21,7 @@ class SpeakerCountDataset(Dataset):
         return {"audio": audio_tensor, "label": label_tensor}
     
 class LightningSpeakerCounterDataModule(pl.LightningDataModule):
-    def __init__(self, train_data_path: str, val_data_path: str, batch_size: str=1):
+    def __init__(self, train_data_path: str, val_data_path: str, batch_size: int=1):
         super().__init__()
         self.batch_size = batch_size
 
@@ -55,13 +54,11 @@ class LightningSpeakerCounterDataModule(pl.LightningDataModule):
         return audio_tensors, label_tensors
 
     def setup(self, stage=None):
-        if stage == "fit" or stage is None:
-            self.train = SpeakerCountDataset(self.train_data)
-        if stage == "test" or stage is None:
-            self.test = SpeakerCountDataset(self.val_data)
+        self.train_data_path = SpeakerCountDataset(self.train_data)
+        self.val_data_path = SpeakerCountDataset(self.val_data)
 
     def train_dataloader(self):
-        return DataLoader(self.train, batch_size=self.batch_size, shuffle=True, collate_fn=self.custom_collate_fn)
-
+        return DataLoader(self.train_data_path, batch_size=self.batch_size, collate_fn=self.custom_collate_fn)
+    
     def val_dataloader(self):
-        return DataLoader(self.test, batch_size=self.batch_size, collate_fn=self.custom_collate_fn)
+        return DataLoader(self.val_data_path, batch_size=self.batch_size, collate_fn=self.custom_collate_fn)
