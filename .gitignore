@@ -11,3 +11,5 @@ __pycache__/
 *.rttm
 *.scp
 Dataset/
+lightning_logs/
+*.res
