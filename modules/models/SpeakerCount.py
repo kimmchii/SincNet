@@ -6,6 +6,7 @@ import numpy as np
 import sys
 import os.path as op
 import pytorch_lightning as pl
+import math
 
 sys.path.append(op.dirname(__file__))
 from SincNetBN import SincNetBN
@@ -99,6 +100,7 @@ class SpeakerCount(nn.Module):
         d_vector_outs = []
         for signal in signals:
             # Change the dimension of the signal from (channels, samples) to (samples,)
+            signal = signal.cpu()
             signal = signal.squeeze().numpy()
             signal = signal / np.max(np.abs(signal))
             signal = torch.from_numpy(signal).float().to(self.device).contiguous()
@@ -108,7 +110,10 @@ class SpeakerCount(nn.Module):
             beginning_sample = 0
             ending_sample = self.window_len
 
-            n_frame = int((signal.shape[0] - self.window_len) / self.window_shift)
+            # n_frame = int((signal.shape[0] - self.window_len) // self.window_shift)
+
+            # Round up to the nearest integer to avoid losing frames in the case that the signal length is not a multiple of the window shift.
+            n_frame = math.ceil((signal.shape[0] - self.window_len) / self.window_shift)
 
             signal_array = (
                 torch.zeros([self.batch_dev, self.window_len]).float().to(self.device).contiguous()
@@ -118,9 +123,9 @@ class SpeakerCount(nn.Module):
             )
             count_frame = 0
             count_frame_total = 0
-            print(ending_sample, signal.shape[0])
+
             while ending_sample < signal.shape[0]:
-                signal_array[count_frame, :] = signal[beginning_sample:ending_sample]
+                signal_array[count_frame, :] = signal[beginning_sample: ending_sample]
                 beginning_sample += self.window_shift
                 ending_sample = beginning_sample + self.window_len
                 count_frame += 1
@@ -134,12 +139,9 @@ class SpeakerCount(nn.Module):
                     signal_array = (
                         torch.zeros([self.batch_dev, self.window_len]).float().to(self.device).contiguous()
                     )
-
+            
             if count_frame > 0:
-                input = signal_array[0:count_frame]
-                print(">>>", input.shape)
-                print(">>>", d_vectors[count_frame_total - count_frame: count_frame_total, :].shape)
-                print("<<<", self.sincnet_bn_model(input).shape)
+                input = signal_array[0: count_frame]
                 d_vectors[count_frame_total - count_frame: count_frame_total, :] = (
                     self.sincnet_bn_model(input)
                 )
@@ -227,8 +229,8 @@ if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = SpeakerCount(config, device)
-
-    signal = np.random.rand(28800)
+    model.to(device)
+    signal = np.random.rand(6401)
     signal = torch.tensor(signal).unsqueeze(0)
     batch_signal = torch.stack([torch.tensor(signal) for _ in range(2)])
     print(batch_signal.shape)
