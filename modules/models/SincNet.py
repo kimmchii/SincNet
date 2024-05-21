@@ -361,7 +361,6 @@ class MLP(nn.Module):
             current_input = self.fc_lay[i]
 
     def forward(self, x):
-
         # Applying Layer/Batch Norm
         if bool(self.fc_use_laynorm_inp):
             x = self.ln0((x))
@@ -372,12 +371,19 @@ class MLP(nn.Module):
         for i in range(self.N_fc_lay):
 
             if self.fc_act[i] != "linear":
-
                 if self.fc_use_laynorm[i]:
-                    x = self.drop[i](self.act[i](self.ln[i](self.wx[i](x))))
+                    x = self.wx[i](x)
+                    x = self.ln[i](x)
+                    x = self.act[i](x)
+                    x = self.drop[i](x)
 
                 if self.fc_use_batchnorm[i]:
-                    x = self.drop[i](self.act[i](self.bn[i](self.wx[i](x))))
+                    
+                    x = self.wx[i](x)
+                    x = self.bn[i](x)
+                    x = self.act[i](x)
+                    x = self.drop[i](x)
+                    # x = self.drop[i](self.act[i](self.bn[i](self.wx[i](x))))
 
                 if (
                     self.fc_use_batchnorm[i] == False

@@ -52,10 +52,18 @@ class SpeakerCount(nn.Module):
         for param in self.sincnet_bn_model.parameters():
             param.requires_grad = False
 
+        self.sincnet_bn_model.eval()
+
         speaker_counter_config = config["speaker_counter"]
         speaker_counter_config["input_dim"] = self.sincnet_bn_model.out_dim * 2
 
         self.speaker_counter_layers = self.init_speaker_counter(speaker_counter_config)
+        # Initialize the weights of the speaker counter layers
+        for m in self.speaker_counter_layers.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_normal_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
         self.multihead_attn = nn.MultiheadAttention(embed_dim=speaker_counter_config["input_dim"], num_heads=speaker_counter_config["num_heads"], batch_first=True)
 
         self.window_len = int(sincnet_config["cnn"]["fs"] * sincnet_config["cnn"]["convolution_window_len"] / 1000.0)
@@ -132,9 +140,10 @@ class SpeakerCount(nn.Module):
                 count_frame_total += 1
                 if count_frame == self.batch_dev:
                     input = signal_array
-                    d_vectors[count_frame_total - self.batch_dev : count_frame_total, :] = (
-                        self.sincnet_bn_model(input)
-                    )
+            
+                    with torch.no_grad():
+                        d_vectors[count_frame_total - self.batch_dev : count_frame_total, :] = self.sincnet_bn_model(input)
+                    
                     count_frame = 0
                     signal_array = (
                         torch.zeros([self.batch_dev, self.window_len]).float().to(self.device).contiguous()
@@ -142,9 +151,9 @@ class SpeakerCount(nn.Module):
             
             if count_frame > 0:
                 input = signal_array[0: count_frame]
-                d_vectors[count_frame_total - count_frame: count_frame_total, :] = (
-                    self.sincnet_bn_model(input)
-                )
+                
+                with torch.no_grad():
+                    d_vectors[count_frame_total - count_frame: count_frame_total, :] = self.sincnet_bn_model(input)
 
             d_vectors = d_vectors.index_select(
                 0, (energy_array_bin == 1).nonzero().view(-1)
@@ -173,7 +182,7 @@ class SpeakerCount(nn.Module):
         # Get the index 0 since it is the weight with attention.
         x = self.multihead_attn(x, x, x)[0]
         x = self.speaker_counter_layers(x)
-        return F.softmax(x, dim=1)
+        return x
     
 class LightningSpeakerCount(pl.LightningModule):
     """
@@ -197,6 +206,8 @@ class LightningSpeakerCount(pl.LightningModule):
         self.learning_rate = config["lr"]
         self.weight_decay = config["weight_decay"]
         self.loss = nn.CrossEntropyLoss()
+        seed = 42
+        torch.manual_seed(seed)
 
     def forward(self, x):
         return self.model(x)
@@ -205,6 +216,9 @@ class LightningSpeakerCount(pl.LightningModule):
         x, y = batch
         y_hat = self.model(x)
         loss = self.loss(y_hat, y)
+        # print(y_hat)
+        # print(">>>", y)
+        print(loss)
         self.log("train_loss", loss)
         return loss
     
@@ -212,10 +226,10 @@ class LightningSpeakerCount(pl.LightningModule):
         x, y = batch
         y_hat = self.model(x)
         loss = self.loss(y_hat, y)
+        print(y_hat)
+        print(">>>", y)
+        print(loss)
         self.log("val_loss", loss)
-    
-    def calculate_loss(self, y_hat, y):
-        return self.loss(y_hat, y)
     
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)

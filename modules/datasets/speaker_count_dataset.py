@@ -51,14 +51,19 @@ class LightningSpeakerCounterDataModule(pl.LightningDataModule):
         labels = [item["label"] for item in batch]
         audio_tensors = torch.stack(pad_audios, dim=0)
         label_tensors = torch.stack(labels)
+
+        # Check nan values
+        if torch.isnan(audio_tensors).any():
+            raise ValueError("NaN values in audio tensors")
         return audio_tensors, label_tensors
 
     def setup(self, stage=None):
-        self.train_data_path = SpeakerCountDataset(self.train_data)
-        self.val_data_path = SpeakerCountDataset(self.val_data)
+        self.train_data_tensors = SpeakerCountDataset(self.train_data)
+        self.val_data_tensors = SpeakerCountDataset(self.val_data)
 
     def train_dataloader(self):
-        return DataLoader(self.train_data_path, batch_size=self.batch_size, collate_fn=self.custom_collate_fn)
+        # Deterministic shuffle
+        return DataLoader(self.train_data_tensors, batch_size=self.batch_size, collate_fn=self.custom_collate_fn, shuffle=True)
     
     def val_dataloader(self):
-        return DataLoader(self.val_data_path, batch_size=self.batch_size, collate_fn=self.custom_collate_fn)
+        return DataLoader(self.val_data_tensors, batch_size=self.batch_size, collate_fn=self.custom_collate_fn)
