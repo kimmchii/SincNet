@@ -13,3 +13,7 @@ __pycache__/
 Dataset/
 lightning_logs/
 *.res
+*.ckpt
+*.wrd
+*.tar.gz
+wandb/

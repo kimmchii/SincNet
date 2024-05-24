@@ -30,6 +30,8 @@ class LightningSpeakerCounterDataModule(pl.LightningDataModule):
 
         with open(val_data_path, "r") as f:
             self.val_data = json.load(f)
+        
+        torch.manual_seed(42)
 
     def custom_collate_fn(self, batch):
         """

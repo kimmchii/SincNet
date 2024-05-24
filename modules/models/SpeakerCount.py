@@ -11,6 +11,19 @@ import math
 sys.path.append(op.dirname(__file__))
 from SincNetBN import SincNetBN
 
+class CustomMultiheadAttention(nn.Module):
+    def __init__(self, embed_dim, num_heads):
+        super(CustomMultiheadAttention, self).__init__()
+        self.attention = nn.MultiheadAttention(
+            embed_dim=embed_dim,
+            num_heads=num_heads,
+            batch_first=True
+        )
+
+    def forward(self, x):
+        attention_output, _ = self.attention(x, x, x)
+        return attention_output
+
 class SpeakerCount(nn.Module):
     """
     Speaker count model that uses SincNet and DNN to extract d-vectors and then uses a multihead attention mechanism
@@ -31,11 +44,11 @@ class SpeakerCount(nn.Module):
     >>> signal = np.random.rand(16000)
     >>> print(model(signal))
     """
-    def __init__(self, config, device):
+    def __init__(self, config):
         super(SpeakerCount, self).__init__()
-        self.device = device
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         sincnet_config = config["sincnet"]
-        self.sincnet_bn_model = SincNetBN(sincnet_config).to(self.device)
+        self.sincnet_bn_model = SincNetBN(sincnet_config)
         
         # Load the state dict
         sincnet_statedict = sincnet_config["cnn"].get("state_dict_path", None)
@@ -64,7 +77,7 @@ class SpeakerCount(nn.Module):
                 nn.init.xavier_normal_(m.weight)
                 nn.init.constant_(m.bias, 0)
 
-        self.multihead_attn = nn.MultiheadAttention(embed_dim=speaker_counter_config["input_dim"], num_heads=speaker_counter_config["num_heads"], batch_first=True)
+        # self.multihead_attn = nn.MultiheadAttention(embed_dim=speaker_counter_config["input_dim"], num_heads=speaker_counter_config["num_heads"], batch_first=True)
 
         self.window_len = int(sincnet_config["cnn"]["fs"] * sincnet_config["cnn"]["convolution_window_len"] / 1000.0)
         self.window_shift = int(
@@ -75,11 +88,12 @@ class SpeakerCount(nn.Module):
 
     def init_speaker_counter(self, config):
         return Sequential(
+            CustomMultiheadAttention(config["input_dim"], config["num_heads"]),
             nn.Linear(config["input_dim"], config["fc1_size"]),
             nn.Dropout(config["dropout_1"]),
             nn.Linear(config["fc1_size"], config["fc2_size"]),
             nn.Dropout(config["dropout_2"]),
-            nn.Linear(config["fc2_size"], config["num_classes"]),
+            nn.Linear(config["fc2_size"], config["output_num_classes"]),
         )
     
     def bypass_low_energy_frame(self, signal, window_len, window_shift):
@@ -111,7 +125,7 @@ class SpeakerCount(nn.Module):
             signal = signal.cpu()
             signal = signal.squeeze().numpy()
             signal = signal / np.max(np.abs(signal))
-            signal = torch.from_numpy(signal).float().to(self.device).contiguous()
+            signal = torch.from_numpy(signal).float().contiguous().to(self.device)
             energy_array_bin = self.bypass_low_energy_frame(signal, self.window_len, self.window_shift)
 
             # split signals into chunks
@@ -124,10 +138,10 @@ class SpeakerCount(nn.Module):
             n_frame = math.ceil((signal.shape[0] - self.window_len) / self.window_shift)
 
             signal_array = (
-                torch.zeros([self.batch_dev, self.window_len]).float().to(self.device).contiguous()
+                torch.zeros([self.batch_dev, self.window_len]).float().contiguous().to(self.device)
             )
             d_vectors = (
-                torch.zeros(n_frame, self.d_vector_dim).float().to(self.device).contiguous()
+                torch.zeros(n_frame, self.d_vector_dim).float().contiguous().to(self.device)
             )
             count_frame = 0
             count_frame_total = 0
@@ -146,7 +160,7 @@ class SpeakerCount(nn.Module):
                     
                     count_frame = 0
                     signal_array = (
-                        torch.zeros([self.batch_dev, self.window_len]).float().to(self.device).contiguous()
+                        torch.zeros([self.batch_dev, self.window_len]).float().contiguous().to(self.device)
                     )
             
             if count_frame > 0:
@@ -180,7 +194,7 @@ class SpeakerCount(nn.Module):
         # x dimension is (batch_size, channels, samples), output dimension is (batch_size, samples)
         x = self.compute_vectors(x)
         # Get the index 0 since it is the weight with attention.
-        x = self.multihead_attn(x, x, x)[0]
+        # x = self.multihead_attn(x, x, x)[0]
         x = self.speaker_counter_layers(x)
         return x
     
@@ -200,9 +214,9 @@ class LightningSpeakerCount(pl.LightningModule):
     >>>     config = yaml.load(f, Loader=yaml.SafeLoader)
     >>> device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     """
-    def __init__(self, config, device):
+    def __init__(self, config):
         super(LightningSpeakerCount, self).__init__()
-        self.model = SpeakerCount(config, device)
+        self.model = SpeakerCount(config)
         self.learning_rate = config["lr"]
         self.weight_decay = config["weight_decay"]
         self.loss = nn.CrossEntropyLoss()
@@ -216,9 +230,6 @@ class LightningSpeakerCount(pl.LightningModule):
         x, y = batch
         y_hat = self.model(x)
         loss = self.loss(y_hat, y)
-        # print(y_hat)
-        # print(">>>", y)
-        print(loss)
         self.log("train_loss", loss)
         return loss
     
@@ -226,9 +237,6 @@ class LightningSpeakerCount(pl.LightningModule):
         x, y = batch
         y_hat = self.model(x)
         loss = self.loss(y_hat, y)
-        print(y_hat)
-        print(">>>", y)
-        print(loss)
         self.log("val_loss", loss)
     
     def configure_optimizers(self):
