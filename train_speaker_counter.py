@@ -30,6 +30,13 @@ trainer = pl.Trainer(
                     max_epochs=config["n_epoch"],
                     gradient_clip_val=5,
                     callbacks=[
+                        ModelCheckpoint(
+                            monitor="val_loss",
+                            mode="min",
+                            save_top_k=1,
+                            dirpath="./models/speaker_classifcation/speaker_count",
+                            filename="best_model"
+                        ),
                         EarlyStopping(
                             monitor="val_loss",
                             mode="min",

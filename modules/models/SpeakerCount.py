@@ -88,10 +88,12 @@ class SpeakerCount(nn.Module):
 
     def init_speaker_counter(self, config):
         return Sequential(
-            CustomMultiheadAttention(config["input_dim"], config["num_heads"]),
+            # CustomMultiheadAttention(config["input_dim"], config["num_heads"]),
             nn.Linear(config["input_dim"], config["fc1_size"]),
+            nn.ReLU(),
             nn.Dropout(config["dropout_1"]),
             nn.Linear(config["fc1_size"], config["fc2_size"]),
+            nn.ReLU(),
             nn.Dropout(config["dropout_2"]),
             nn.Linear(config["fc2_size"], config["output_num_classes"]),
         )
