@@ -34,7 +34,7 @@ speaker_counter:
   dropout_1: 0.5
   fc2_size: 128
   dropout_2: 0.3
-  output_num_classes: 4
+  output_num_classes: 3
 
 
 data:
@@ -42,7 +42,6 @@ data:
   test_data_path: "./dataset/speaker_count/metadata.json"
 
 n_epoch: 20
-batch_size: 64
-lr: 0.00001
-weight_decay: 0.0001
-optimizer: adam
+batch_size: 32
+lr: 0.0001
+weight_decay: 0.00001

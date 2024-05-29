@@ -52,16 +52,9 @@ trainer.fit(
     datamodule=speaker_count_data_module
     )
 
-# Keep best model after training end
-best_model_path = trainer.checkpoint_callback.best_model_path
-
-# Save the best model
-best_model = LightningSpeakerCount.load_from_checkpoint(best_model_path)
-torch.save(best_model.state_dict(), "./models/speaker_classifcation/speaker_count/speaker_count.pth")
 
 # Save speaker_counter_layers to be used in the speaker classification model
-# layers = {"speaker_counter_layers": speaker_count.speaker_counter_layers.state_dict()}
-# torch.save(speaker_count.model.speaker_counter_layers.state_dict(), "./models/speaker_classifcation/speaker_count/speaker_counter_layers.pth")
+torch.save(speaker_count.model.speaker_counter_layers.state_dict(), "./models/speaker_classifcation/speaker_count/speaker_counter_layers.pth")
 
 
 

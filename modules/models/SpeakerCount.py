@@ -6,6 +6,7 @@ import numpy as np
 import sys
 import os.path as op
 import pytorch_lightning as pl
+from torchmetrics import F1Score as F1
 import math
 
 sys.path.append(op.dirname(__file__))
@@ -195,11 +196,9 @@ class SpeakerCount(nn.Module):
     def forward(self, x):
         # x dimension is (batch_size, channels, samples), output dimension is (batch_size, samples)
         x = self.compute_vectors(x)
-        # Get the index 0 since it is the weight with attention.
-        # x = self.multihead_attn(x, x, x)[0]
         x = self.speaker_counter_layers(x)
         return x
-    
+        
 class LightningSpeakerCount(pl.LightningModule):
     """
     Pytorch Lightning module for the speaker count model.
@@ -224,6 +223,8 @@ class LightningSpeakerCount(pl.LightningModule):
         self.loss = nn.CrossEntropyLoss()
         seed = 42
         torch.manual_seed(seed)
+        self.f1 = F1(task="multiclass", num_classes=config["speaker_counter"]["output_num_classes"])
+
 
     def forward(self, x):
         return self.model(x)
@@ -233,6 +234,7 @@ class LightningSpeakerCount(pl.LightningModule):
         y_hat = self.model(x)
         loss = self.loss(y_hat, y)
         self.log("train_loss", loss)
+
         return loss
     
     def validation_step(self, batch, batch_idx):
@@ -240,9 +242,11 @@ class LightningSpeakerCount(pl.LightningModule):
         y_hat = self.model(x)
         loss = self.loss(y_hat, y)
         self.log("val_loss", loss)
+        predicted_output = torch.argmax(y_hat, dim=1)
+        self.log("F1 score", self.f1(predicted_output, y))
     
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
+        optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.learning_rate)
         return optimizer
 
 
@@ -259,4 +263,3 @@ if __name__ == "__main__":
     batch_signal = torch.stack([torch.tensor(signal) for _ in range(2)])
     print(batch_signal.shape)
     print(model(batch_signal))
-

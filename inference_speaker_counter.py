@@ -19,8 +19,8 @@ if __name__ == "__main__":
     # audio_path = "./dataset/speaker_count/3/audio_35477.mp3"
     # audio_path = "./dataset/speaker_count/1/sx97.mp3"
     # audio_path = "./dataset/speaker_count/2/audio_24555.mp3"
-    audio_path = "./dataset/speaker_count/2/audio_2.mp3"
-    # audio_path = "./crop/cut_mhm_0.mp3"
+    # audio_path = "./dataset/speaker_count/2/audio_2.mp3"
+    audio_path = "./crop/cut_mhm.mp3"
     audio_array, sr = librosa.load(audio_path, sr=8000)
     speaker_count.to(device)
 
